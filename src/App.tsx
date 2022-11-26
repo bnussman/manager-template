@@ -28,7 +28,9 @@ function OAuth() {
     console.log("New token expires at", new Date(expiresAt));
 
     setTimeout(() => {
-      // Re-auth because token is expired when this runs
+      localStorage.removeItem('expires');
+      localStorage.removeItem('token');
+      window.location.href = encodeURI(`${authorizeUrl}?response_type=token&client_id=${clientId}&state=xyz&redirect_uri=http://localhost:5173/callback&scope=*`);
     }, expiresIn);
 
     localStorage.setItem('token', token);
@@ -52,8 +54,16 @@ function Main() {
     const hasToken = token !== null;
     const expiresAt = Number(localStorage.getItem('expires'));
 
-    if (location.pathname.includes('/callback')) return;
+    if (location.pathname.includes('/callback')) {
+      setIsLoading(false);
+      return;
+    }
     if (hasToken && expiresAt > Date.now()) {
+      setTimeout(() => {
+        localStorage.removeItem('expires');
+        localStorage.removeItem('token');
+        window.location.href = encodeURI(`${authorizeUrl}?response_type=token&client_id=${clientId}&state=xyz&redirect_uri=http://localhost:5173/callback&scope=*`);
+      }, expiresAt - Date.now());
       setToken(token);
       setIsLoading(false);
       return;
