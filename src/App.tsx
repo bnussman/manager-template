@@ -1,57 +1,89 @@
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { OAuthPopup, useOAuth2 } from "@tasoskakour/react-use-oauth2";
+import React, { useEffect, useState } from "react";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Home } from "./Home";
-import { baseRequest } from "@linode/api-v4";
 import { Linodes } from "./Linodes";
+import { authorizeUrl, clientId } from "./utils/constants";
+import { setToken } from "@linode/api-v4";
 
 const queryClient = new QueryClient();
 
+function OAuth() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const url = new URLSearchParams(window.location.href);
+    const data = Array.from(url.entries());
+
+    const token = data.find(entry => entry[0].includes("access_token"))?.[1];
+    const expires_in = url.get("expires_in")
+
+    if (!token || !expires_in) {
+      return;
+    }
+
+    const expiresIn = Number(expires_in) * 1000;
+    const expiresAt = Date.now() + expiresIn;
+
+    console.log("New token expires at", new Date(expiresAt));
+
+    setTimeout(() => {
+      // Re-auth because token is expired when this runs
+    }, expiresIn);
+
+    localStorage.setItem('token', token);
+    localStorage.setItem('expires', String(expiresAt));
+
+    console.log(token)
+    setToken(token);
+
+    navigate("/");
+  }, []);
+
+  return <p>Logging In</p>;
+}
+
+interface Props {
+  children: any;
+}
+
+const Auth = React.memo(({ children }: Props) => {
+  const location = useLocation();
+  const [isLoading, setIsLoading] = useState(true);
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const hasToken = token !== null;
+    const expiresAt = Number(localStorage.getItem('expires'));
+
+    if (location.pathname.includes('/callback')) return;
+    if (hasToken && expiresAt > Date.now()) {
+      setToken(token);
+      setIsLoading(false);
+      return;
+    }
+    window.location.href = encodeURI(`${authorizeUrl}?response_type=token&client_id=${clientId}&state=xyz&redirect_uri=http://localhost:5173/callback&scope=*`);
+  }, []);
+
+  return (
+    <Routes>
+      <Route path="/callback" element={<OAuth />} />
+      {!isLoading && (
+        <>
+          <Route path="/linodes" element={<Linodes />} />
+          <Route path="/" element={<Home />} />
+        </>
+      )}
+    </Routes>
+  );
+});
+
 export function App() {
-  const { data, getAuth } = useOAuth2({
-    authorizeUrl: "https://login.linode.com/oauth/authorize",
-    clientId: "1228ce081a630e7919ef",
-    redirectUri: `http://localhost:5173/callback`,
-    scope: "*",
-    responseType: "token",
-  });
-
-  const isLoggedIn = Boolean(data?.access_token);
-
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        {!isLoggedIn && (
-          <button onClick={() => getAuth()}>
-            Login
-          </button>
-        )}
-        <Routes>
-          <Route path="/callback" element={<OAuthPopup />} />
-          {isLoggedIn && (
-            <>
-              <Route path="/linodes" element={<Linodes />} />
-              <Route path="/" element={<Home />} />
-            </>
-          )}
-        </Routes>
+        <Auth>
+        </Auth>
       </QueryClientProvider>
     </BrowserRouter>
   )
 };
-
-baseRequest.interceptors.request.use((config) => {
-  const authState = window.localStorage.getItem('token-https://login.linode.com/oauth/authorize-1228ce081a630e7919ef-*')
-
-  if (!authState || authState === 'null') {
-    return config;
-  }
-
-  return {
-    ...config,
-    headers: {
-      ...config.headers,
-      Authorization: `Bearer ${JSON.parse(authState).access_token}`,
-    },
-  };
-});
