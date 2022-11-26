@@ -4,7 +4,7 @@ import { useProfile } from "./queries/profile";
 export function Home() {
   const navigate = useNavigate();
   const { profile, isLoading, error } = useProfile();
-  
+
   if (isLoading) {
     return <p>Loading</p>;
   }

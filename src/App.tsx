@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Home } from "./Home";
@@ -43,13 +43,10 @@ function OAuth() {
   return <p>Logging In</p>;
 }
 
-interface Props {
-  children: any;
-}
-
-const Auth = React.memo(({ children }: Props) => {
+function Main() {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     const hasToken = token !== null;
@@ -75,14 +72,13 @@ const Auth = React.memo(({ children }: Props) => {
       )}
     </Routes>
   );
-});
+}
 
 export function App() {
   return (
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
-        <Auth>
-        </Auth>
+        <Main />
       </QueryClientProvider>
     </BrowserRouter>
   )
